@@ -1,5 +1,4 @@
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
-const qrcode = require('qrcode-terminal');
 const axios = require('axios');
 const pino = require('pino');
 const express = require('express');
@@ -8,17 +7,16 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.get('/', (req, res) => res.send('Motor Grupo RM Online'));
-app.listen(PORT, () => console.log(`Servidor de porta aberto na porta ${PORT}`));
+app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
 
 const GOOGLE_SHEETS_WEBHOOK = "https://script.google.com/macros/s/AKfycbwopLn_UDSxz20PHzsW8DasTz8CK7FfmRsHF5-6o43f-FqFAO8uf3gZeOo5StQB6LB_/exec";
 
 async function iniciarMotor() {
-    console.log("Iniciando motor do WhatsApp...");
+    console.log("Iniciando motor...");
     const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
 
     const sock = makeWASocket({
         auth: state,
-        printQRInTerminal: false, // Vamos imprimir manualmente para garantir
         logger: pino({ level: 'silent' }),
         browser: ['Grupo RM', 'Chrome', '1.0.0']
     });
@@ -26,22 +24,19 @@ async function iniciarMotor() {
     sock.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect, qr } = update;
         
-        // DEBUG: Isso vai aparecer no seu log do Render
-        console.log("Status da conexão:", connection);
-
         if (qr) {
+            // A MÁGICA: Em vez de desenhar, ele cria um link de imagem de QR Code
+            const qrLink = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qr)}`;
             console.log('================================================');
-            console.log('QR CODE ABAIXO:');
-            qrcode.generate(qr, { small: true });
+            console.log('✅ QR CODE GERADO COM SUCESSO!');
+            console.log('CLIQUE NO LINK ABAIXO PARA VER O QR CODE:');
+            console.log(qrLink);
             console.log('================================================');
         }
 
         if (connection === 'close') {
             const erro = lastDisconnect?.error?.output?.statusCode;
-            if (erro !== DisconnectReason.loggedOut) {
-                console.log("Reconectando...");
-                iniciarMotor();
-            }
+            if (erro !== DisconnectReason.loggedOut) iniciarMotor();
         } else if (connection === 'open') {
             console.log('🚀 CONECTADO COM SUCESSO!');
         }
