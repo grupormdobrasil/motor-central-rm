@@ -12,8 +12,10 @@ app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
 const GOOGLE_SHEETS_WEBHOOK = "https://script.google.com/macros/s/AKfycbwopLn_UDSxz20PHzsW8DasTz8CK7FfmRsHF5-6o43f-FqFAO8uf3gZeOo5StQB6LB_/exec";
 
 async function iniciarMotor() {
-    console.log("Iniciando motor...");
-    const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
+    console.log("Iniciando motor... Tentando criar sessão em /tmp");
+    
+    // MUDANÇA CRÍTICA: Salvando na pasta /tmp do Render
+    const { state, saveCreds } = await useMultiFileAuthState('/tmp/auth_info_baileys');
 
     const sock = makeWASocket({
         auth: state,
@@ -25,18 +27,17 @@ async function iniciarMotor() {
         const { connection, lastDisconnect, qr } = update;
         
         if (qr) {
-            // A MÁGICA: Em vez de desenhar, ele cria um link de imagem de QR Code
             const qrLink = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qr)}`;
-            console.log('================================================');
-            console.log('✅ QR CODE GERADO COM SUCESSO!');
-            console.log('CLIQUE NO LINK ABAIXO PARA VER O QR CODE:');
+            console.log('✅ QR CODE GERADO! ACESSE O LINK ABAIXO:');
             console.log(qrLink);
-            console.log('================================================');
         }
 
         if (connection === 'close') {
             const erro = lastDisconnect?.error?.output?.statusCode;
-            if (erro !== DisconnectReason.loggedOut) iniciarMotor();
+            if (erro !== DisconnectReason.loggedOut) {
+                console.log("Reconectando...");
+                iniciarMotor();
+            }
         } else if (connection === 'open') {
             console.log('🚀 CONECTADO COM SUCESSO!');
         }
@@ -53,7 +54,7 @@ async function iniciarMotor() {
 
         try {
             const respostaGoogle = await axios.post(GOOGLE_SHEETS_WEBHOOK, { telefone: numeroCliente, mensagem: textoMensagem });
-            if (respostaGoogle.data.reply) {
+            if (respostaGoogle.data && respostaGoogle.data.reply) {
                 await sock.sendMessage(msg.key.remoteJid, { text: respostaGoogle.data.reply });
             }
         } catch (erro) {
