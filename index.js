@@ -2,35 +2,48 @@ const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = requi
 const qrcode = require('qrcode-terminal');
 const axios = require('axios');
 const pino = require('pino');
-const express = require('express'); // Adicionamos o Express
+const express = require('express');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Servidor de "saúde" para o Render não derrubar o bot
 app.get('/', (req, res) => res.send('Motor Grupo RM Online'));
 app.listen(PORT, () => console.log(`Servidor de porta aberto na porta ${PORT}`));
 
 const GOOGLE_SHEETS_WEBHOOK = "https://script.google.com/macros/s/AKfycbwopLn_UDSxz20PHzsW8DasTz8CK7FfmRsHF5-6o43f-FqFAO8uf3gZeOo5StQB6LB_/exec";
 
 async function iniciarMotor() {
+    console.log("Iniciando motor do WhatsApp...");
     const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
 
     const sock = makeWASocket({
         auth: state,
-        printQRInTerminal: true, // Agora imprimimos no log do Render
+        printQRInTerminal: false, // Vamos imprimir manualmente para garantir
         logger: pino({ level: 'silent' }),
         browser: ['Grupo RM', 'Chrome', '1.0.0']
     });
 
     sock.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect, qr } = update;
-        if (qr) qrcode.generate(qr, { small: true });
+        
+        // DEBUG: Isso vai aparecer no seu log do Render
+        console.log("Status da conexão:", connection);
+
+        if (qr) {
+            console.log('================================================');
+            console.log('QR CODE ABAIXO:');
+            qrcode.generate(qr, { small: true });
+            console.log('================================================');
+        }
+
         if (connection === 'close') {
             const erro = lastDisconnect?.error?.output?.statusCode;
-            if (erro !== DisconnectReason.loggedOut) iniciarMotor();
+            if (erro !== DisconnectReason.loggedOut) {
+                console.log("Reconectando...");
+                iniciarMotor();
+            }
         } else if (connection === 'open') {
-            console.log('🚀 Motor Conectado!');
+            console.log('🚀 CONECTADO COM SUCESSO!');
         }
     });
 
@@ -49,7 +62,7 @@ async function iniciarMotor() {
                 await sock.sendMessage(msg.key.remoteJid, { text: respostaGoogle.data.reply });
             }
         } catch (erro) {
-            console.error('Erro:', erro.message);
+            console.error('Erro na resposta:', erro.message);
         }
     });
 }
