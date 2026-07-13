@@ -1,15 +1,13 @@
 {
   "name": "motor-whatsapp-rm",
   "version": "1.0.0",
-  "description": "Motor WhatsApp API via Baileys",
   "main": "index.js",
-  "scripts": {
-    "start": "node index.js"
-  },
+  "scripts": { "start": "node index.js" },
   "dependencies": {
     "@whiskeysockets/baileys": "^6.7.5",
     "axios": "^1.6.5",
     "qrcode-terminal": "^0.12.0",
-    "pino": "^8.17.2"
+    "pino": "^8.17.2",
+    "express": "^4.18.2"
   }
 }
