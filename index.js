@@ -8,6 +8,8 @@ const port = process.env.PORT || 3000;
 app.get('/', (req, res) => res.send('Central RM Online'));
 app.listen(port, () => console.log(`Servidor rodando na porta ${port}`));
 
+let pairingCodeRequested = false;
+
 async function iniciarMotor() {
     const { state, saveCreds } = await useMultiFileAuthState('./auth_info');
 
@@ -22,15 +24,19 @@ async function iniciarMotor() {
         
         if (connection === 'close') {
             const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
-            if (shouldReconnect) iniciarMotor();
+            if (shouldReconnect) setTimeout(iniciarMotor, 5000); // Espera 5 segundos antes de tentar de novo
         } else if (connection === 'open') {
             console.log('🚀 CONECTADO COM SUCESSO!');
             
-            // AGORA SIM: Só pedimos o código se não estivermos registrados
-            if (!sock.authState.creds.registered) {
-                const phoneNumber = '554384380000'; // <--- INSIRA SEU NÚMERO AQUI (55 + DDD + NUMERO)
-                const code = await sock.requestPairingCode(phoneNumber);
-                console.log(`\n\n=== SEU CÓDIGO DE PAREAMENTO: ${code} ===\n\n`);
+            if (!sock.authState.creds.registered && !pairingCodeRequested) {
+                pairingCodeRequested = true;
+                try {
+                    const phoneNumber = '554384380000'; // <--- INSIRA SEU NÚMERO AQUI
+                    const code = await sock.requestPairingCode(phoneNumber);
+                    console.log(`\n\n=== SEU CÓDIGO DE PAREAMENTO: ${code} ===\n\n`);
+                } catch (e) {
+                    console.log('Erro ao solicitar código:', e);
+                }
             }
         }
     });
