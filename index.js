@@ -28,7 +28,7 @@ async function iniciarMotor() {
             
             // AGORA SIM: Só pedimos o código se não estivermos registrados
             if (!sock.authState.creds.registered) {
-                const phoneNumber = '55XXXXXXXXXXX'; // <--- INSIRA SEU NÚMERO AQUI (55 + DDD + NUMERO)
+                const phoneNumber = '554384380000'; // <--- INSIRA SEU NÚMERO AQUI (55 + DDD + NUMERO)
                 const code = await sock.requestPairingCode(phoneNumber);
                 console.log(`\n\n=== SEU CÓDIGO DE PAREAMENTO: ${code} ===\n\n`);
             }
