@@ -1,30 +1,15 @@
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
-const express = require('express');
 const pino = require('pino');
+const express = require('express');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const port = process.env.PORT || 3000;
 
-let qrCodeLink = "Aguardando geração do QR Code... Aguarde alguns segundos e atualize a página.";
-
-// Rota para ver o QR Code
-app.get('/qr', (req, res) => {
-    res.send(`
-        <html>
-            <body style="text-align:center; font-family:sans-serif; margin-top:50px;">
-                <h1>Status: ${qrCodeLink.includes('http') ? 'QR Code Gerado' : 'Carregando...'}</h1>
-                <img src="${qrCodeLink}" style="width:300px; height:300px;" />
-                <p>Escaneie rápido com o WhatsApp da loja!</p>
-                <script>setTimeout(() => location.reload(), 3000);</script>
-            </body>
-        </html>
-    `);
-});
-
-app.listen(PORT, () => console.log(`Servidor rodando na porta ${PORT}`));
+app.get('/', (req, res) => res.send('Central RM Online'));
+app.listen(port, () => console.log(`Servidor de manutenção rodando na porta ${port}`));
 
 async function iniciarMotor() {
-    const { state, saveCreds } = await useMultiFileAuthState('/tmp/auth_info_baileys');
+    const { state, saveCreds } = await useMultiFileAuthState('./auth_info');
 
     const sock = makeWASocket({
         auth: state,
@@ -32,24 +17,26 @@ async function iniciarMotor() {
         browser: ['Grupo RM', 'Chrome', '1.0.0']
     });
 
-    sock.ev.on('connection.update', (update) => {
-        const { connection, lastDisconnect, qr } = update;
-        
-        if (qr) {
-            qrCodeLink = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qr)}`;
-            console.log('QR Code gerado! Acesse /qr no seu navegador.');
-        }
+    // SE NÃO ESTIVER CONECTADO, PEDE O CÓDIGO DE PAREAMENTO
+    if (!sock.authState.creds.registered) {
+        const phoneNumber = '55XXXXXXXXXXX'; // <--- INSIRA SEU NÚMERO AQUI (Ex: 5543999999999)
+        setTimeout(async () => {
+            const code = await sock.requestPairingCode(phoneNumber);
+            console.log(`\n\n=== SEU CÓDIGO DE PAREAMENTO: ${code} ===\n\n`);
+        }, 3000);
+    }
 
+    sock.ev.on('connection.update', async (update) => {
+        const { connection, lastDisconnect } = update;
         if (connection === 'close') {
-            if (lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut) {
-                iniciarMotor();
-            }
+            const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
+            if (shouldReconnect) iniciarMotor();
         } else if (connection === 'open') {
-            qrCodeLink = "Conectado com sucesso!";
             console.log('🚀 CONECTADO COM SUCESSO!');
         }
     });
 
     sock.ev.on('creds.update', saveCreds);
 }
+
 iniciarMotor();
